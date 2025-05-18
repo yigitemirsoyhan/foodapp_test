@@ -291,6 +291,85 @@ def view_cart():
     return render_template('cart.html', cart_items=cart_items, grand_total=grand_total)
 
 
+
+
+@app.route('/checkout')
+def checkout():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Find the active cart
+        cursor.execute("""
+            SELECT cart_id FROM cart
+            WHERE customer_id = %s AND status = 'Preparing'
+            LIMIT 1
+        """, (user_id,))
+        result = cursor.fetchone()
+
+        if not result:
+            flash("No active cart to checkout.", "warning")
+            return redirect(url_for('view_cart'))
+
+        cart_id = result[0]
+
+        # Infer restaurant_id from items in cart_item (JOIN with menu_item)
+        cursor.execute("""
+            SELECT mi.restaurant_id
+            FROM cart_item ci
+            JOIN menu_item mi ON ci.menu_item_id = mi.menu_item_id
+            WHERE ci.cart_id = %s
+            LIMIT 1
+        """, (cart_id,))
+        res = cursor.fetchone()
+
+        if not res:
+            flash("No menu items found in cart to determine restaurant.", "warning")
+            return redirect(url_for('view_cart'))
+
+        restaurant_id = res[0]
+
+        # Calculate total (optional but important)
+        cursor.execute("""
+            SELECT SUM(mi.price * ci.quantity)
+            FROM cart_item ci
+            JOIN menu_item mi ON ci.menu_item_id = mi.menu_item_id
+            WHERE ci.cart_id = %s
+        """, (cart_id,))
+        total = cursor.fetchone()[0] or 0.0
+
+        # Update cart with restaurant_id, status and total
+        cursor.execute("""
+            UPDATE cart
+            SET status = 'Pending', restaurant_id = %s, total = %s
+            WHERE cart_id = %s
+        """, (restaurant_id, total, cart_id))
+        conn.commit()
+
+        # Create new empty cart
+        cursor.execute("""
+            INSERT INTO cart (customer_id, restaurant_id, total, status)
+            VALUES (%s, %s, %s, 'Preparing')
+        """, (user_id, restaurant_id, 0.0))
+        conn.commit()
+
+    except mysql.connector.Error as err:
+        flash(f"Error while checking out: {err}", "danger")
+        return redirect(url_for('view_cart'))
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    return render_template("checkout.html")
+
+
+
+
 # -------------------- Restaurant Manager Routes --------------------
 @app.route('/manager/dashboard')
 def manager_dashboard():
@@ -312,7 +391,7 @@ def manager_dashboard():
                    WHERE c.restaurant_id IN (SELECT restaurant_id
                                              FROM restaurant
                                              WHERE manager_id = %s)
-                   ORDER BY Timestamp DESC LIMIT 5
+                   ORDER BY timestamp DESC LIMIT 5
                    """, (session['user_id'],))
 
     recent_orders = cursor.fetchall()
@@ -341,15 +420,17 @@ def manage_restaurant(restaurant_id):
     cursor.execute("SELECT * FROM menu_item WHERE restaurant_id = %s", (restaurant_id,))
     menu_items = cursor.fetchall()
 
-    # Get recent orders (limit to recent 10 for example)
+    # Get recent orders for this restaurant via menu_item join
     cursor.execute("""
-        SELECT c.cart_id, u.username, c.total, c.status
-        FROM cart c
-        JOIN user u ON c.customer_id = u.user_id
-        WHERE c.restaurant_id = %s
-        ORDER BY c.timestamp DESC
-        LIMIT 10
-    """, (restaurant_id,))
+                   SELECT DISTINCT c.cart_id, u.username, SUM(ci.quantity * mi.price) AS total, c.status
+                   FROM cart c
+                            JOIN user u ON c.customer_id = u.user_id
+                            JOIN cart_item ci ON c.cart_id = ci.cart_id
+                            JOIN menu_item mi ON ci.menu_item_id = mi.menu_item_id
+                   WHERE mi.restaurant_id = %s
+                   GROUP BY c.cart_id, u.username, c.status
+                   ORDER BY c.cart_id DESC LIMIT 10
+                   """, (restaurant_id,))
     recent_orders = cursor.fetchall()
 
     # Get statistics
@@ -589,32 +670,29 @@ def update_order_status():
     if 'user_id' not in session or session.get('user_type') != 'Manager':
         return redirect(url_for('login'))
 
-    cart_id = request.form.get('cart_id')
-    new_status = request.form.get('status')
+    cart_id = request.form['cart_id']
+    new_status = request.form['status']
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
+    # Optional: Get restaurant_id before update for redirect/back link
+    cursor.execute("SELECT restaurant_id FROM cart WHERE cart_id = %s", (cart_id,))
+    result = cursor.fetchone()
+    restaurant_id = result[0] if result else None
 
-    cursor.execute("""
-        SELECT * FROM cart
-        WHERE cart_id = %s AND restaurant_id IN (
-            SELECT restaurant_id FROM restaurant WHERE manager_id = %s
-        )
-    """, (cart_id, session['user_id']))
-    order = cursor.fetchone()
-
-    if not order:
+    try:
+        cursor.execute("UPDATE cart SET status = %s WHERE cart_id = %s", (new_status, cart_id))
+        conn.commit()
+    except mysql.connector.Error as err:
+        flash(f"Error updating order: {err}", "danger")
+        return redirect(url_for('manager_dashboard'))
+    finally:
         cursor.close()
         conn.close()
-        abort(403)
 
-    cursor.execute("UPDATE cart SET status = %s WHERE cart_id = %s", (new_status, cart_id))
-    conn.commit()
-    cursor.close()
-    conn.close()
+    return render_template("update_order_status.html", cart_id=cart_id, status=new_status, restaurant_id=restaurant_id)
 
-    return redirect(request.referrer or url_for('manager_dashboard'))
 
 
 
