@@ -341,26 +341,44 @@ def manage_restaurant(restaurant_id):
     cursor.execute("SELECT * FROM menu_item WHERE restaurant_id = %s", (restaurant_id,))
     menu_items = cursor.fetchall()
 
+    # Get recent orders (limit to recent 10 for example)
+    cursor.execute("""
+        SELECT c.cart_id, u.username, c.total, c.status
+        FROM cart c
+        JOIN user u ON c.customer_id = u.user_id
+        WHERE c.restaurant_id = %s
+        ORDER BY c.timestamp DESC
+        LIMIT 10
+    """, (restaurant_id,))
+    recent_orders = cursor.fetchall()
+
     # Get statistics
     cursor.execute("""
-                   SELECT SUM(total) as                         total_revenue,
-                          COUNT(*)   as                         total_orders,
-                          (SELECT username
-                           FROM user
-                           WHERE user_id = (SELECT customer_id
-                                            FROM cart
-                                            WHERE restaurant_id = %s
-                                            ORDER BY total DESC LIMIT 1 )) as top_customer
-                   FROM cart
-                   WHERE restaurant_id = %s
-                     AND Timestamp >= DATE_SUB(NOW()
-                       , INTERVAL 1 MONTH)
-                   """, (restaurant_id, restaurant_id))
+        SELECT SUM(total) as total_revenue,
+               COUNT(*)   as total_orders,
+               (SELECT username
+                FROM user
+                WHERE user_id = (SELECT customer_id
+                                 FROM cart
+                                 WHERE restaurant_id = %s
+                                 ORDER BY total DESC LIMIT 1)) as top_customer
+        FROM cart
+        WHERE restaurant_id = %s
+          AND Timestamp >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    """, (restaurant_id, restaurant_id))
 
     stats = cursor.fetchone()
+
     cursor.close()
     conn.close()
-    return render_template('manage_restaurant.html', restaurant=restaurant, menu_items=menu_items, stats=stats)
+
+    return render_template(
+        'manage_restaurant.html',
+        restaurant=restaurant,
+        menu_items=menu_items,
+        stats=stats,
+        recent_orders=recent_orders  # 👈 Pass this to the template
+    )
 
 
 @app.route('/manager/add_menu_item', methods=['POST'])
@@ -564,6 +582,40 @@ def delete_address(address_id):
         conn.close()
 
     return redirect(url_for('settings'))
+
+
+@app.route('/update_order_status', methods=['POST'])
+def update_order_status():
+    if 'user_id' not in session or session.get('user_type') != 'Manager':
+        return redirect(url_for('login'))
+
+    cart_id = request.form.get('cart_id')
+    new_status = request.form.get('status')
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+
+    cursor.execute("""
+        SELECT * FROM cart
+        WHERE cart_id = %s AND restaurant_id IN (
+            SELECT restaurant_id FROM restaurant WHERE manager_id = %s
+        )
+    """, (cart_id, session['user_id']))
+    order = cursor.fetchone()
+
+    if not order:
+        cursor.close()
+        conn.close()
+        abort(403)
+
+    cursor.execute("UPDATE cart SET status = %s WHERE cart_id = %s", (new_status, cart_id))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return redirect(request.referrer or url_for('manager_dashboard'))
+
 
 
 if __name__ == '__main__':

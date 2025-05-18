@@ -33,7 +33,19 @@
             <td>{{ order.cart_id }}</td>
             <td>{{ order.username }}</td>
             <td>${{ "%.2f"|format(order.total) }}</td>
-            <td>{{ order.status }}</td>
+            <td>
+                <form method="POST" action="{{ url_for('update_order_status') }}" class="d-flex">
+                    <input type="hidden" name="cart_id" value="{{ order.cart_id }}">
+                    <select name="status" class="form-select form-select-sm me-2">
+                        <option value="Pending" {% if order.status == 'Pending' %}selected{% endif %}>Pending</option>
+                        <option value="Accepted" {% if order.status == 'Accepted' %}selected{% endif %}>Accepted</option>
+                        <option value="Preparing" {% if order.status == 'Preparing' %}selected{% endif %}>Preparing</option>
+                        <option value="Sent" {% if order.status == 'Sent' %}selected{% endif %}>Sent</option>
+                        <option value="Completed" {% if order.status == 'Completed' %}selected{% endif %}>Completed</option>
+                    </select>
+                    <button type="submit" class="btn btn-sm btn-primary">Update</button>
+                </form>
+            </td>
         </tr>
         {% endfor %}
     </tbody>
