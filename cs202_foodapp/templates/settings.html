@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">User Settings</h2>
+
+    <!-- Kişisel Bilgiler Formu -->
+    <form method="POST">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4>Personal Information</h4>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">First Name</label>
+                        <input type="text" class="form-control" name="firstname" value="{{ user.firstname }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Last Name</label>
+                        <input type="text" class="form-control" name="lastname" value="{{ user.lastname }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control" name="username" value="{{ user.username }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-control" name="password" value="{{ user.password }}" required>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Yeni Adres Ekleme -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4>Add New Address</h4>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Street</label>
+                        <input type="text" class="form-control" name="street">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">City</label>
+                        <input type="text" class="form-control" name="city">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+    </form>
+
+    <!-- Mevcut Adresler -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h4>Your Addresses</h4>
+        </div>
+        <div class="card-body">
+            <div class="list-group">
+                {% for address in addresses %}
+                <div class="list-group-item">
+                    {{ address.street }}, {{ address.city }}
+                    <form action="/delete_address/{{ address.address_id }}" method="POST" class="d-inline float-end">
+                        <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

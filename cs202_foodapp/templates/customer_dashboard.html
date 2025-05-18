@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Customer Dashboard{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Restaurants in Your City</h2>
+<div class="row">
+    {% for restaurant in restaurants %}
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">{{ restaurant.name }}</h5>
+                <p class="card-text">
+                    City: {{ restaurant.city }} <br>
+                    Cuisine: {{ restaurant.cuisine_type }}<br>
+                    Rating: {{ "%.1f"|format(restaurant.avg_rating) if restaurant.avg_rating else "New" }}
+                </p>
+                <a href="/restaurant/{{ restaurant.restaurant_id }}" class="btn btn-primary">View Menu</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

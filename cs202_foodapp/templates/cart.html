@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Your Cart{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Your Cart</h2>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Item</th>
+            <th>Price</th>
+            <th>Quantity</th>
+            <th>Total</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in cart_items %}
+        <tr>
+            <td>{{ item.name }}</td>
+            <td>${{ "%.2f"|format(item.price) }}</td>
+            <td>{{ item.quantity }}</td>
+            <td>${{ "%.2f"|format(item.price * item.quantity) }}</td>
+            <td>
+                <form action="/decrease_quantity" method="POST" style="display:inline;">
+                    <input type="hidden" name="cart_item_id" value="{{ item.cart_item_id }}">
+                    <button type="submit" class="btn btn-sm btn-warning">-</button>
+                </form>
+                <form action="/remove_item" method="POST" style="display:inline;">
+                    <input type="hidden" name="cart_item_id" value="{{ item.cart_item_id }}">
+                    <button type="submit" class="btn btn-sm btn-danger">×</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<div class="text-end">
+    <!-- Backend'den gelen grand_total kullanılıyor -->
+    <h4>Grand Total: ${{ "%.2f"|format(grand_total) }}</h4>
+    <a href="/checkout" class="btn btn-success">Checkout</a>
+</div>
+{% endblock %}

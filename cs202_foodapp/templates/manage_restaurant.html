@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Manager Dashboard{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Your Restaurants</h2>
+<div class="row">
+    {% for restaurant in restaurants %}
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">{{ restaurant.name }}</h5>
+                <a href="/manager/restaurant/{{ restaurant.restaurant_id }}" class="btn btn-primary">Manage</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<h4 class="mt-5">Recent Orders</h4>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Order ID</th>
+            <th>Customer</th>
+            <th>Total</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for order in recent_orders %}
+        <tr>
+            <td>{{ order.cart_id }}</td>
+            <td>{{ order.username }}</td>
+            <td>${{ "%.2f"|format(order.total) }}</td>
+            <td>{{ order.status }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}{{ restaurant.name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <h2>{{ restaurant.name }}</h2>
+        <p>Cuisine: {{ restaurant.cuisine_type }}</p>
+        
+        <h4 class="mt-4">Menu</h4>
+        <div class="list-group">
+            {% for item in menu_items %}
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5>{{ item.name }}</h5>
+                        <p>{{ item.description }}</p>
+                        <p>${{ "%.2f"|format(item.price) }}</p>
+                    </div>
+                    <form method="POST" action="/add_to_cart">
+                        <input type="hidden" name="menu_item_id" value="{{ item.menu_item_id }}">
+                        <input type="number" name="quantity" value="1" min="1" class="form-control mb-2">
+                        <button type="submit" class="btn btn-sm btn-primary">Add to Cart</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
